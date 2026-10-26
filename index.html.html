@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>경찰과 도둑 - 전자칠판 게임</title>
+<style>
+:root{--ink:#20334a;--blue:#347fc4;--red:#e56b62;--green:#2d9a70;--cream:#fffaf0}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:#f3f8ff;color:var(--ink);touch-action:manipulation}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#fff;border-bottom:3px solid #dceafa}
+h1{font-size:clamp(22px,3vw,38px);margin:0;color:#205a92}
+button{font:inherit;font-weight:800;border:0;border-radius:16px;padding:13px 18px;background:#e4eef9;color:#244d76;cursor:pointer;touch-action:manipulation}
+button:active{transform:scale(.98)}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+main{padding:14px;max-width:1600px;margin:auto}
+.instructions{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;font-size:clamp(18px,2.2vw,28px);font-weight:900;text-align:center;margin:4px 0 12px}
+.pill{padding:8px 16px;border-radius:999px;background:#fff;border:2px solid #d9e6f4}
+#message{color:#226b50}
+.stats{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:clamp(16px,1.8vw,23px);font-weight:800}
+.board{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,250px);gap:14px;align-items:stretch}
+.field{position:relative;min-height:500px;height:min(67vh,720px);border:5px solid #a6d9a6;border-radius:26px;overflow:hidden;background:linear-gradient(#dff5ff 0 23%,#bce7a9 23% 100%)}
+.field:before{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;background:repeating-linear-gradient(90deg,#a4d88d 0 70px,#b4e49a 70px 140px);opacity:.7}
+.cloud{position:absolute;font-size:45px;opacity:.65;pointer-events:none}
+.tree{position:absolute;bottom:10%;font-size:clamp(40px,5vw,70px);pointer-events:none}
+
+/* 입체적인 지상 감옥: 바닥 그림자 + 돌벽 + 둥근 지붕 + 철창 */
+.prison{position:absolute;right:3%;bottom:5%;width:30%;height:39%;min-width:180px;min-height:190px;z-index:2;display:flex;align-items:center;justify-content:flex-end;flex-direction:column;padding-bottom:8px;font-size:clamp(18px,2vw,27px);font-weight:900;filter:drop-shadow(0 9px 5px #24452f45)}
+.prison-roof{position:absolute;top:0;left:-5%;width:110%;height:23%;background:linear-gradient(180deg,#8a9baa,#586b7d);border:4px solid #405364;border-radius:16px 16px 5px 5px;transform:perspective(180px) rotateX(8deg);box-shadow:inset 0 5px 0 #b9c4cd}
+.prison-wall{position:absolute;top:17%;bottom:4%;left:0;right:0;border:5px solid #46596b;border-radius:7px 7px 12px 12px;background:linear-gradient(90deg,#bdc9d2,#eef2f5 20%,#aebbc6 48%,#edf1f4 76%,#9eacb8);box-shadow:inset 0 -10px 0 #7e8d99,inset 0 0 0 5px #d8e0e6}
+.prison-label{position:relative;z-index:4;margin-bottom:5px;padding:4px 12px;background:#fff;border:3px solid #46596b;border-radius:10px;color:#263b4d}
+.bars{position:absolute;top:30%;left:13%;right:13%;bottom:18%;z-index:3;display:flex;justify-content:space-evenly;gap:7px;padding:0 6px;background:linear-gradient(180deg,#d9e3ebbb,#53677899);border:4px solid #46596b;border-bottom-width:7px;border-radius:6px 6px 2px 2px}
+.bars span{display:block;width:10px;height:100%;border-radius:5px;background:linear-gradient(90deg,#566a7b,#e1e8ed 45%,#667b8c);box-shadow:1px 0 2px #283b4c}
+.prison-door{position:absolute;z-index:4;bottom:13%;left:34%;width:32%;height:39%;border:4px solid #46596b;border-bottom:0;border-radius:7px 7px 0 0;background:linear-gradient(90deg,#728597,#c3cdd5,#64798a);display:flex;align-items:center;justify-content:center;font-size:clamp(22px,3vw,38px)}
+.prison-ground{position:absolute;left:-12%;right:-12%;bottom:0;height:13%;border-radius:50%;background:linear-gradient(#9db68b,#6c8a5a);z-index:-1}
+.character{position:absolute;z-index:5;width:clamp(84px,10vw,126px);height:clamp(100px,12vw,145px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;border-radius:22px;background:#ffffffeb;border:3px solid #fff;box-shadow:0 5px 12px #28435c30;user-select:none;-webkit-user-select:none;touch-action:none;cursor:grab;font-size:clamp(44px,5.5vw,70px)}
+.character:active{cursor:grabbing;box-shadow:0 8px 20px #28435c50}
+.character .label{font-size:clamp(15px,1.6vw,21px);font-weight:900;white-space:nowrap}
+.police{border-color:#6ba6e0}.thief{border-color:#e4a26f}
+.side{display:flex;flex-direction:column;gap:12px}
+.panel{background:white;border:2px solid #e0eaf5;border-radius:22px;padding:15px}
+.panel h2{font-size:clamp(19px,2vw,26px);margin:0 0 10px}
+.panel p{font-size:clamp(15px,1.5vw,19px);line-height:1.5;margin:7px 0}
+#jail-list{display:flex;flex-wrap:wrap;gap:3px;font-size:28px;min-height:36px}
+#caught{font-size:clamp(18px,2vw,25px);font-weight:900;color:#205a92}
+.hint{font-size:15px!important;color:#66788b}
+.bottom{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:13px}
+.primary{background:#2677bb;color:white}.green{background:#d9f5e7;color:#176344}
+@media(max-width:760px){header{align-items:flex-start;flex-direction:column}.board{grid-template-columns:1fr}.field{height:60vh;min-height:420px}.side{display:grid;grid-template-columns:1fr 1fr}.prison{width:34%;height:36%;min-width:155px;min-height:170px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🚓 경찰과 도둑</h1>
+  <div class="controls">
+    <button id="stage-1" class="primary">1단계</button>
+    <button id="stage-2">2단계 · 자동 움직임</button>
+    <button id="stage-3">3단계 · 동료 구출</button>
+    <button id="mode-police" class="primary">👮 경찰 차례</button>
+    <button id="mode-thief">🏃 도둑 차례</button>
+    <button id="reset">↻ 다시 시작</button>
+  </div>
+</header>
+<main>
+  <div class="instructions">
+    <span class="pill" id="stage-label">1단계 · 직접 움직이기</span>
+    <span class="pill" id="mode-label">경찰 차례</span>
+    <span id="instruction">경찰을 도둑에게 끌어다 놓아요!</span>
+    <span id="message" aria-live="polite">준비됐나요?</span>
+  </div>
+  <div class="stats">
+    <span class="pill">잡힌 도둑: <b id="count">0</b>명</span>
+    <span class="pill">남은 도둑: <b id="remaining">3</b>명</span>
+  </div>
+  <div class="board">
+    <section class="field" id="field" aria-label="놀이 공간">
+      <span class="cloud" style="left:10%;top:4%">☁️</span><span class="cloud" style="left:44%;top:10%">☁️</span>
+      <span class="tree" style="left:30%">🌳</span><span class="tree" style="left:64%;bottom:7%">🌳</span>
+      <div class="prison" id="prison" aria-label="감옥">
+        <div class="prison-roof"></div><div class="prison-wall"></div>
+        <div class="bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="prison-door" aria-hidden="true">🔒</div>
+        <div class="prison-label">감옥</div>
+        <div class="prison-ground"></div>
+        <span id="jail-label" style="position:absolute;top:25%;z-index:5;background:#fff;border-radius:8px;padding:2px 6px;font-size:clamp(12px,1.2vw,16px)">도둑을 잡아요!</span>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="panel">
+        <h2>놀이 방법</h2>
+        <p id="how-1">1. 위에서 역할을 선택해요.</p>
+        <p id="how-2">2. 캐릭터를 손가락으로 꾹 누르고 끌어요.</p>
+        <p id="how-3">3. 경찰을 도둑에게 끌어다 놓아 잡아요!</p>
+        <p class="hint">전자칠판에서는 캐릭터를 손으로 드래그하세요.</p>
+      </div>
+      <div class="panel">
+        <h2>감옥에 있는 도둑</h2>
+        <div id="jail-list">아직 없어요</div>
+        <p id="caught">우리 모두 안전하게 놀아요!</p>
+        <p class="hint">친구를 밀거나 잡아당기지 않아요.</p>
+      </div>
+    </aside>
+  </div>
+  <div class="bottom">
+    <button class="green" id="release">🔓 도둑 풀어주기</button>
+    <button id="new-thief">➕ 도둑 한 명 더</button>
+  </div>
+</main>
+<script>
+(() => {
+ const field=document.getElementById('field');
+ const prison=document.getElementById('prison');
+ const $=id=>document.getElementById(id);
+ let mode='police', stage=1, serial=0, caught=0, characters=[], active=null, offsetX=0, offsetY=0, animating=false;
+ const rand=(a,b)=>Math.random()*(b-a)+a;
+ function setStage(n){
+   stage=n;
+   $('stage-1').classList.toggle('primary',stage===1);
+   $('stage-2').classList.toggle('primary',stage===2);
+   $('stage-3').classList.toggle('primary',stage===3);
+   $('stage-label').textContent=stage===1?'1단계 · 직접 움직이기':stage===2?'2단계 · 상대가 자동으로 움직이기':'3단계 · 동료 도둑 구출하기';
+   $('how-1').textContent=stage===1?'1. 위에서 역할을 선택해요.':stage===2?'1. 경찰 차례 또는 도둑 차례를 선택해요.':'1. 도둑 차례를 선택해요.';
+   $('how-2').textContent=stage===1?'2. 캐릭터를 손가락으로 꾹 누르고 끌어요.':stage===2?'2. 내 캐릭터를 움직이면 상대 캐릭터가 자동으로 움직여요.':'2. 도둑을 감옥 가까이 끌어다 놓아요.';
+   $('how-3').textContent=stage===1?'3. 경찰을 도둑에게 끌어다 놓아 잡아요!':stage===2?'3. 가까이 다가가 도둑을 잡아 보세요!':'3. 갇힌 동료 도둑 한 명을 구출해요!';
+   setMode(mode);
+ }
+ function setMode(m){
+   mode=m;
+   $('mode-police').classList.toggle('primary',m==='police');
+   $('mode-thief').classList.toggle('primary',m==='thief');
+   $('mode-label').textContent=m==='police'?'👮 경찰 차례':'🏃 도둑 차례';
+   $('instruction').textContent=stage===1?(m==='police'?'경찰을 도둑에게 끌어다 놓아요!':'도둑을 움직여 경찰을 피해요!'):stage===2?(m==='police'?'경찰을 움직여요! 도둑이 자동으로 도망가요.':'도둑을 움직여요! 경찰이 자동으로 쫓아와요.'):(m==='police'?'경찰을 움직여 도둑을 잡아요!':'도둑을 감옥으로 데려가 동료를 구해요!');
+   $('message').textContent=m==='police'?'도둑을 잡아 볼까요?':stage===3?'감옥에 있는 동료를 구해 보세요!':'도둑 차례예요. 경찰을 피해 보세요!';
+ }
+ function moveAnimated(item,x,y,duration=380){
+   return new Promise(resolve=>{
+     const el=item.el, sx=parseFloat(el.style.left)||0, sy=parseFloat(el.style.top)||0;
+     const ex=Math.max(0,Math.min(field.clientWidth-el.offsetWidth-4,x));
+     const ey=Math.max(0,Math.min(field.clientHeight-el.offsetHeight-4,y));
+     const start=performance.now();
+     function frame(now){
+       const t=Math.min(1,(now-start)/duration), eased=t*(2-t);
+       pos(el,sx+(ex-sx)*eased,sy+(ey-sy)*eased);
+       if(t<1)requestAnimationFrame(frame);else resolve();
+     }
+     requestAnimationFrame(frame);
+   });
+ }
+ function distance(a,b){
+   const ax=(parseFloat(a.el.style.left)||0)+a.el.offsetWidth/2, ay=(parseFloat(a.el.style.top)||0)+a.el.offsetHeight/2;
+   const bx=(parseFloat(b.el.style.left)||0)+b.el.offsetWidth/2, by=(parseFloat(b.el.style.top)||0)+b.el.offsetHeight/2;
+   return Math.hypot(ax-bx,ay-by);
+ }
+ function nearestThief(police){return characters.filter(c=>c.type==='thief'&&!c.captured).sort((a,b)=>distance(police,a)-distance(police,b))[0]}
+ function captureIfTouching(){
+   const police=characters.find(c=>c.type==='police');
+   if(!police)return false;
+   const target=characters.find(c=>c.type==='thief'&&!c.captured&&overlaps(police.el,c.el));
+   if(!target)return false;
+   target.captured=true;caught++;
+   const pr=rect(prison),fr=rect(field);
+   pos(target.el,pr.left-fr.left+pr.width*.50-target.el.offsetWidth/2,pr.top-fr.top+pr.height*.56-target.el.offsetHeight/2);
+   target.el.style.zIndex=3;target.el.style.borderColor='#9aa9b8';
+   $('message').textContent='잡았다! 도둑이 감옥에 갔어요!';
+   $('jail-label').textContent='잡힌 도둑 '+caught+'명';
+   updateStats();
+   return true;
+ }
+ async function autoOpponent(movedItem){
+   if(stage!==2||animating)return;
+   animating=true;
+   $('message').textContent='상대 캐릭터가 자동으로 움직여요!';
+   const police=characters.find(c=>c.type==='police');
+   const thieves=characters.filter(c=>c.type==='thief'&&!c.captured);
+   if(!police||!thieves.length){animating=false;return}
+   if(mode==='police'){
+     // 도둑은 경찰에게서 멀어지는 방향으로 조금 도망간다.
+     for(const thief of thieves){
+       const px=(parseFloat(police.el.style.left)||0)+police.el.offsetWidth/2;
+       const py=(parseFloat(police.el.style.top)||0)+police.el.offsetHeight/2;
+       const tx=(parseFloat(thief.el.style.left)||0)+thief.el.offsetWidth/2;
+       const ty=(parseFloat(thief.el.style.top)||0)+thief.el.offsetHeight/2;
+       let dx=tx-px,dy=ty-py,len=Math.hypot(dx,dy)||1;
+       await moveAnimated(thief,(parseFloat(thief.el.style.left)||0)+(dx/len)*75+rand(-18,18),(parseFloat(thief.el.style.top)||0)+(dy/len)*75+rand(-18,18),300);
+     }
+     $('message').textContent='도둑이 도망갔어요! 다시 움직여 잡아 보세요.';
+   }else{
+     // 경찰은 가장 가까운 도둑을 향해 조금씩 다가간다.
+     const target=nearestThief(police);
+     if(target){
+       const px=(parseFloat(police.el.style.left)||0)+police.el.offsetWidth/2;
+       const py=(parseFloat(police.el.style.top)||0)+police.el.offsetHeight/2;
+       const tx=(parseFloat(target.el.style.left)||0)+target.el.offsetWidth/2;
+       const ty=(parseFloat(target.el.style.top)||0)+target.el.offsetHeight/2;
+       const dx=tx-px,dy=ty-py,len=Math.hypot(dx,dy)||1,step=Math.min(95,Math.max(45,len-18));
+       await moveAnimated(police,(parseFloat(police.el.style.left)||0)+(dx/len)*step,(parseFloat(police.el.style.top)||0)+(dy/len)*step,380);
+       if(!captureIfTouching())$('message').textContent='경찰이 쫓아왔어요! 도망가 보세요.';
+     }
+   }
+   animating=false;
+ }
+ function rescueCompanion(item){
+   if(stage!==3||mode!=='thief'||item.type!=='thief'||item.captured)return false;
+   const jailed=characters.find(c=>c.type==='thief'&&c.captured);
+   if(!jailed)return false;
+   // A thief reaching the prison or touching a jailed companion rescues one companion.
+   const reachedPrison=overlaps(item.el,prison);
+   const touchedJailed=overlaps(item.el,jailed.el);
+   if(!reachedPrison&&!touchedJailed)return false;
+   jailed.captured=false;
+   jailed.el.style.borderColor='';
+   jailed.el.style.zIndex=5;
+   const x=field.clientWidth*.48+rand(-35,55), y=field.clientHeight*.32+rand(0,120);
+   pos(jailed.el,x,y);
+   caught=Math.max(0,caught-1);
+   $('message').textContent='동료 도둑을 구출했어요!';
+   $('jail-label').textContent=caught>0?'잡힌 도둑 '+caught+'명':'도둑을 잡아요!';
+   updateStats();
+   return true;
+ }
+ function rect(el){return el.getBoundingClientRect()}
+ function pos(el,x,y){el.style.left=x+'px';el.style.top=y+'px'}
+ function addCharacter(type,x,y){
+   const el=document.createElement('div');
+   el.className='character '+type;
+   el.dataset.type=type;el.dataset.id=String(++serial);
+   el.innerHTML=type==='police'?'<span>👮🏻</span><span class="label">경찰</span>':'<span>🏃🏻</span><span class="label">도둑 '+serial+'</span>';
+   field.appendChild(el);
+   const maxX=field.clientWidth-el.offsetWidth-8,maxY=field.clientHeight-el.offsetHeight-8;
+   pos(el,Math.max(5,Math.min(x,maxX)),Math.max(5,Math.min(y,maxY)));
+   characters.push({id:serial,type,el,captured:false});
+   el.addEventListener('pointerdown',startDrag);
+   return el;
+ }
+ function startDrag(e){
+   const item=characters.find(c=>c.el===e.currentTarget);
+   if(!item||item.captured||animating)return;
+   if((mode==='police'&&item.type!=='police')||(mode==='thief'&&item.type!=='thief')){
+     $('message').textContent=mode==='police'?'경찰 캐릭터를 움직여요!':'도둑 캐릭터를 움직여요!';
+     return;
+   }
+   active=item; const r=rect(item.el);
+   offsetX=e.clientX-r.left;offsetY=e.clientY-r.top;
+   item.el.setPointerCapture(e.pointerId);item.el.style.zIndex=20;
+   $('message').textContent='좋아요! 원하는 곳으로 옮겨요.';
+   e.preventDefault();
+   item.el.addEventListener('pointermove',moveDrag);
+   item.el.addEventListener('pointerup',endDrag,{once:true});
+   item.el.addEventListener('pointercancel',endDrag,{once:true});
+ }
+ function moveDrag(e){
+   if(!active)return;
+   const r=rect(field),w=active.el.offsetWidth,h=active.el.offsetHeight;
+   let x=e.clientX-r.left-offsetX,y=e.clientY-r.top-offsetY;
+   x=Math.max(0,Math.min(field.clientWidth-w,x));y=Math.max(0,Math.min(field.clientHeight-h,y));
+   pos(active.el,x,y);
+ }
+ function overlaps(a,b){
+   const A=rect(a),B=rect(b);
+   return A.left<B.right&&A.right>B.left&&A.top<B.bottom&&A.bottom>B.top;
+ }
+ function endDrag(e){
+   if(!active)return;
+   const item=active;active=null;item.el.style.zIndex=5;
+   item.el.removeEventListener('pointermove',moveDrag);
+   if(mode==='police'&&item.type==='police'){
+     if(!captureIfTouching())$('message').textContent='도둑에게 가까이 가서 살짝 잡아 봐요!';
+     if(stage===2&&!characters.every(c=>c.type!=='thief'||c.captured))setTimeout(()=>autoOpponent(item),180);
+   }else if(mode==='thief'&&item.type==='thief'){
+     if(stage===3&&rescueCompanion(item)){ /* 구출 성공 메시지는 함수에서 표시 */ }
+     else $('message').textContent=stage===3?'감옥 가까이 가서 동료를 구해 보세요!':'도둑이 움직였어요!';
+     if(stage===2)setTimeout(()=>autoOpponent(item),180);
+   }
+   updateStats();
+ }
+ function updateStats(){
+   $('count').textContent=caught;
+   $('remaining').textContent=characters.filter(c=>c.type==='thief'&&!c.captured).length;
+   $('jail-list').innerHTML=characters.some(c=>c.type==='thief'&&c.captured)?characters.filter(c=>c.type==='thief'&&c.captured).map(()=>'<span>🧒🏻</span>').join(''):'아직 없어요';
+   if(characters.filter(c=>c.type==='thief'&&!c.captured).length===0)$('caught').textContent='모든 도둑을 잡았어요!';
+   else $('caught').textContent='친구와 차례를 바꿔 보세요!';
+ }
+ function reset(){
+   characters.forEach(c=>c.el.remove());characters=[];serial=0;caught=0;
+   const w=field.clientWidth,h=field.clientHeight;
+   addCharacter('police',w*.35,h*.36);
+   addCharacter('thief',w*.56,h*.42);
+   addCharacter('thief',w*.70,h*.58);
+   addCharacter('thief',w*.48,h*.67);
+   setMode('police');updateStats();$('jail-label').textContent='도둑을 잡아요!';
+ }
+ $('stage-1').addEventListener('click',()=>setStage(1));
+ $('stage-2').addEventListener('click',()=>setStage(2));
+ $('stage-3').addEventListener('click',()=>setStage(3));
+ $('mode-police').addEventListener('click',()=>setMode('police'));
+ $('mode-thief').addEventListener('click',()=>setMode('thief'));
+ $('reset').addEventListener('click',reset);
+ $('release').addEventListener('click',()=>{
+   const jailed=characters.filter(c=>c.type==='thief'&&c.captured);
+   if(!jailed.length){$('message').textContent='감옥에 있는 도둑이 없어요.';return}
+   jailed.forEach(c=>{c.captured=false;c.el.style.borderColor='';pos(c.el,field.clientWidth*.53+rand(-50,100),field.clientHeight*.36+rand(0,150));});
+   caught=0;$('message').textContent='도둑들이 다시 놀이를 시작해요!';$('jail-label').textContent='도둑을 잡아요!';updateStats();
+ });
+ $('new-thief').addEventListener('click',()=>{
+   if(characters.filter(c=>c.type==='thief'&&!c.captured).length>=8){$('message').textContent='도둑은 한 번에 8명까지 놀 수 있어요.';return}
+   addCharacter('thief',field.clientWidth*rand(.35,.72),field.clientHeight*rand(.35,.7));updateStats();$('message').textContent='도둑이 한 명 더 왔어요!';
+ });
+ window.addEventListener('resize',()=>{if(!active){characters.forEach(c=>{const x=parseFloat(c.el.style.left)||0,y=parseFloat(c.el.style.top)||0;pos(c.el,Math.min(x,field.clientWidth-c.el.offsetWidth),Math.min(y,field.clientHeight-c.el.offsetHeight));});}});
+ reset();
+})();
+</script>
+</body>
+</html>
